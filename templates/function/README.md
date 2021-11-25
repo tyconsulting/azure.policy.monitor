@@ -1,0 +1,1 @@
+# Bicep template for the Azure Function app

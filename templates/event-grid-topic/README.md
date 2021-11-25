@@ -1,0 +1,1 @@
+# Bicep template for the Event Grid System Topic for PolicyInsights

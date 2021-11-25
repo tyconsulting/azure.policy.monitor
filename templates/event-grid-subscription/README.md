@@ -1,0 +1,1 @@
+# Bicep Template for the Event Grid Subscription
