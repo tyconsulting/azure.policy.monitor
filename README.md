@@ -36,3 +36,11 @@ policyDefId=$(az policy definition list --query "[?displayName=='Require a tag o
 az policy assignment create --name 'requiredtags-events' --display-name 'Require tag on RG' --scope "/subscriptions/$subId" --policy $policyDefId --params '{ "tagName": { "value": "EventTest" } }'
 
 ```
+
+## Manually deploy the code
+
+### 1. deploy funciton app
+
+```bash
+az functionapp create --consumption-plan-location westeurope --runtime python --runtime-version 3.8 --functions-version 3 --name <APP_NAME> --os-type linux
+```

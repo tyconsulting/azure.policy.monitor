@@ -59,7 +59,7 @@ def main(event: func.EventGridEvent):
         'event_type': event.event_type,
     })
     log_type = 'PolicyInsights'
-    customer_id = os.envirion['workspace_id']
-    shared_key = os.environ['workspace_key']
+    customer_id = os.environ['WORKSPACE_ID']
+    shared_key = os.environ['WORKSPACE_KEY']
     logging.info('Python EventGrid trigger processed an event: %s', result)
     post_la_data(customer_id, shared_key, result, log_type)

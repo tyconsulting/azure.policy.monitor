@@ -1,0 +1,219 @@
+name: $(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - 'README.md'
+    - 'tests/*'
+pr:
+  branches:
+    include:
+      - master
+      - feature/*
+  paths:
+    exclude:
+    - 'README.md'
+    - 'tests/*'
+stages:
+- stage: test_and_build
+  displayName: 'Test and Build'
+  variables:
+  - group: variables - mgmt (dev)
+  jobs:
+  - job: lint_tests
+    displayName: Lint Tests
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        docker pull github/super-linter:latest
+        docker run -e RUN_LOCAL=true -v $(System.DefaultWorkingDirectory)/management:/tmp/lint github/super-linter
+      displayName: 'Code Scan using GitHub Super-Linter'
+  - job: Bicep_Validation
+    displayName: ARM Deployment Validation
+    dependsOn: arm_ttk_test
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Get management subscription Id'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        ScriptType: InlineScript
+        Inline: |
+          $subId = (get-azcontext).subscription.id
+          Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+        azurePowerShellVersion: LatestVersion
+    - task: AzureCLI@2
+      displayName: 'Template Validation - Function App'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group validate --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' --location '$(MgmtSubLocation)'
+    - task: AzureCLI@2
+      displayName: 'Get Function App Template Deployment What-If Result'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group what-if --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' --location '$(MgmtSubLocation)' --result-format 'FullResourcePayloads'
+    - task: AzureCLI@2
+      displayName: 'Template Validation - Event Grid Topic'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group validate --template-file 'templates/event-grid-topic/main.bicep' --location '$(MgmtSubLocation)'
+    - task: AzureCLI@2
+      displayName: 'Get Event Grid Topic Template Deployment What-If Result'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group what-if --template-file 'templates/event-grid-topic/main.bicep' ---location '$(MgmtSubLocation)' --result-format 'FullResourcePayloads'
+    - task: AzureCLI@2
+      displayName: 'Template Validation - Event Grid Subscription'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group validate --template-file 'templates/event-grid-subscription/main.bicep' --location '$(MgmtSubLocation)'
+    - task: AzureCLI@2
+      displayName: 'Get Event Grid Subscription Template Deployment What-If Result'
+      inputs:
+        azureSubscription: 'sub-mgmt-lab'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group what-if --template-file 'templates/event-grid-subscription/main.bicep' ---location '$(MgmtSubLocation)' --result-format 'FullResourcePayloads'
+  - job: Publish_Pattern
+    displayName: Publish Pattern
+    pool:
+      vmImage: windows-latest
+    dependsOn: Bicep_Validation
+    steps:
+    - task: CopyFiles@2
+      displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/management'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/management'
+        CleanTargetFolder: true
+        OverWrite: true
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: management'
+      inputs:
+        artifactName: 'management'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/management'
+- stage: lab_deploy
+  displayName: 'Deploy Lab Stage'
+  jobs:
+    - deployment: dev_deploy
+      variables:
+      - group: variables - mgmt (lab)
+      displayName: 'Deploy to Lab'
+      pool:
+        vmImage: windows-latest
+        timeoutInMinutes: 120
+      environment: 'lab'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: AzurePowerShell@5
+              displayName: 'Get management subscription Id'
+              inputs:
+                azureSubscription: 'sub-mgmt-lab'
+                ScriptType: InlineScript
+                Inline: |
+                  $subId = (get-azcontext).subscription.id
+                  Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                azurePowerShellVersion: LatestVersion
+            - task: AzureResourceManagerTemplateDeployment@3
+              displayName: 'Template Deployment - Lab'
+              inputs:
+                deploymentScope: Subscription
+                azureResourceManagerConnection: 'sub-mgmt-lab'
+                subscriptionId: '$(mgmtSubId)'
+                location: '$(MgmtSubLocation)'
+                csmFile: $(Agent.BuildDirectory)/management/template/azuredeploy.json
+                overrideParameters: '-logAnalyticsWorkspaceResourceId $(logAnalyticsWorkspaceResourceId)'
+                deploymentMode: Incremental
+- stage: dev_deploy
+  displayName: 'Deploy Dev Stage'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
+  jobs:
+    - deployment: dev_deploy
+      variables:
+      - group: variables - mgmt (dev)
+      displayName: 'Deploy to Dev'
+      pool:
+        vmImage: windows-latest
+        timeoutInMinutes: 120
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: AzurePowerShell@5
+              displayName: 'Get management subscription Id'
+              inputs:
+                azureSubscription: 'sub-mgmt-dev'
+                ScriptType: InlineScript
+                Inline: |
+                  $subId = (get-azcontext).subscription.id
+                  Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                azurePowerShellVersion: LatestVersion
+            - task: AzureResourceManagerTemplateDeployment@3
+              displayName: 'Template Deployment - Dev'
+              inputs:
+                deploymentScope: Subscription
+                azureResourceManagerConnection: 'sub-mgmt-dev'
+                subscriptionId: '$(mgmtSubId)'
+                location: '$(MgmtSubLocation)'
+                csmFile: $(Agent.BuildDirectory)/management/template/azuredeploy.json
+                overrideParameters: '-logAnalyticsWorkspaceResourceId $(logAnalyticsWorkspaceResourceId)'
+                deploymentMode: Incremental
+- stage: prod_deploy
+  displayName: 'Deploy Prod Stage'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
+  jobs:
+    - deployment: prod_deploy
+      variables:
+      - group: variables - mgmt (prod)
+      displayName: 'Deploy to Prod'
+      pool:
+        vmImage: windows-latest
+        timeoutInMinutes: 120
+      timeoutInMinutes: 120
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: AzurePowerShell@5
+              displayName: 'Get management subscription Id'
+              inputs:
+                azureSubscription: 'sub-mgmt-prod'
+                ScriptType: InlineScript
+                Inline: |
+                  $subId = (get-azcontext).subscription.id
+                  Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                azurePowerShellVersion: LatestVersion
+            - task: AzureResourceManagerTemplateDeployment@3
+              displayName: 'Template Deployment - Prod'
+              inputs:
+                deploymentScope: Subscription
+                azureResourceManagerConnection: 'sub-mgmt-prod'
+                subscriptionId: '$(mgmtSubId)'
+                location: '$(MgmtSubLocation)'
+                csmFile: $(Agent.BuildDirectory)/management/template/azuredeploy.json
+                overrideParameters: '-logAnalyticsWorkspaceResourceId $(logAnalyticsWorkspaceResourceId)'
+                deploymentMode: Incremental
