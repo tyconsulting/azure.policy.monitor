@@ -182,3 +182,4 @@ cython_debug/
 
 # Local History for Visual Studio Code
 .history/
+.DS_Store
