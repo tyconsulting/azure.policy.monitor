@@ -1,12 +1,12 @@
+import base64
+import datetime
 import json
 import logging
-import requests
-import datetime
 import hashlib
 import hmac
-import base64
 import os
 import azure.functions as func
+import requests
 
 
 def build_la_api_signature(customer_id, shared_key, date, content_length, method, content_type, resource):
@@ -20,8 +20,6 @@ def build_la_api_signature(customer_id, shared_key, date, content_length, method
         decoded_key, bytes_to_hash, digestmod=hashlib.sha256).digest()).decode()
     authorization = "SharedKey {}:{}".format(customer_id, encoded_hash)
     return authorization
-
-# Build and send a request to the POST API
 
 
 def post_la_data(customer_id, shared_key, body, log_type):
