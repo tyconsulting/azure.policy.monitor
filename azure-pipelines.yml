@@ -37,6 +37,15 @@ stages:
     pool:
       vmImage: windows-latest
     steps:
+    - task: AzureCLI@2
+      displayName: 'Create Resource Group'
+      inputs:
+        azureSubscription: sub-mgmt-dev
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az --version
+          az group create --name $(resourceGroupName) --location $(location)
     - task: AzurePowerShell@5
       displayName: 'Get management subscription Id'
       inputs:
@@ -118,8 +127,6 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
-                    az --version
-                    az group create --name $(resourceGroupName) --location $(location)
                     az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/templates/functioin-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
