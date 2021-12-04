@@ -40,7 +40,7 @@ stages:
     - task: AzurePowerShell@5
       displayName: 'Get management subscription Id'
       inputs:
-        azureSubscription: 'sub-mgmt-lab'
+        azureSubscription: 'sub-mgmt-dev'
         ScriptType: InlineScript
         Inline: |
           $subId = (get-azcontext).subscription.id
@@ -49,7 +49,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Template Validation - Function App'
       inputs:
-        azureSubscription: 'sub-mgmt-lab'
+        azureSubscription: 'sub-mgmt-dev'
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
@@ -57,7 +57,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Get Function App Template Deployment What-If Result'
       inputs:
-        azureSubscription: 'sub-mgmt-lab'
+        azureSubscription: 'sub-mgmt-dev'
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
@@ -65,7 +65,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Template Validation - Event Grid'
       inputs:
-        azureSubscription: 'sub-mgmt-lab'
+        azureSubscription: 'sub-mgmt-dev'
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
@@ -73,7 +73,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Get Event Grid Template Deployment What-If Result'
       inputs:
-        azureSubscription: 'sub-mgmt-lab'
+        azureSubscription: 'sub-mgmt-dev'
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
