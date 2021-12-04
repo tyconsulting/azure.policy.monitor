@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import os
+
 import azure.functions as func
 import requests
 
