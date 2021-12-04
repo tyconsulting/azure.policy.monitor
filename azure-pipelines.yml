@@ -116,7 +116,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Function App'
                 inputs:
-                  azureSubscription: $(azureServiceConnection)
+                  azureSubscription: '$(azureServiceConnection)'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
