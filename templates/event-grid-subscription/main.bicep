@@ -1,8 +1,18 @@
 param eventGridSubName string = 'PolicyInsightsSub'
 param topicName string = 'PolicyInsightsTopic'
 param functionAppResourceId string
+
+resource evtTopic 'Microsoft.EventGrid/systemTopics@2021-06-01-preview' = {
+  name: topicName
+  location: 'global'
+  properties: {
+    source: subscription().id
+    topicType: 'Microsoft.PolicyInsights.PolicyStates'
+  }
+}
+
 resource evtGridSub 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2021-06-01-preview' = {
-  name: concat(topicName, '/', eventGridSubName)
+  name: concat(evtTopic.name, '/', eventGridSubName)
   properties: {
     eventDeliverySchema: 'EventGridSchema'
     destination: {

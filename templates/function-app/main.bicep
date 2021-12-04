@@ -23,7 +23,7 @@ param keyVaultSku string = 'Standard'
 param storageSku string = 'Standard_LRS'
 
 @description('App Service Plan SKU name.')
-param appServicePlanSku string = 'S2'
+param appServicePlanSku string = 'Y1'
 
 @description('Log Analytics Workspace Resource Id.')
 param logAnalyticsWorkspaceResourceId string
