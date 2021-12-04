@@ -13,10 +13,18 @@ import requests
 def build_la_api_signature(
     customer_id, shared_key, date, content_length, method, content_type, resource
 ):
-    x_headers = 'x-ms-date:' + date
-    string_to_hash = method + "\n" + \
-        str(content_length) + "\n" + content_type + \
-        "\n" + x_headers + "\n" + resource
+    x_headers = "x-ms-date:" + date
+    string_to_hash = (
+        method
+        + "\n"
+        + str(content_length)
+        + "\n"
+        + content_type
+        + "\n"
+        + x_headers
+        + "\n"
+        + resource
+    )
     bytes_to_hash = bytes(string_to_hash, encoding="utf-8")
     decoded_key = base64.b64decode(shared_key)
     encoded_hash = base64.b64encode(
@@ -53,24 +61,26 @@ def post_la_data(customer_id, shared_key, body, log_type):
         "content-type": content_type,
         "Authorization": signature,
         "Log-Type": log_type,
-        "x-ms-date": rfc1123date
+        "x-ms-date": rfc1123date,
     }
 
     response = requests.post(uri, data=body, headers=headers)
-    if (response.status_code >= 200 and response.status_code <= 299):
+    if response.status_code >= 200 and response.status_code <= 299:
         logging.info("Accepted")
     else:
         logging.info("Response code: {}".format(response.status_code))
 
 
 def main(event: func.EventGridEvent):
-    result = json.dumps({
-        "id": event.id,
-        "data": event.get_json(),
-        "topic": event.topic,
-        "subject": event.subject,
-        "event_type": event.event_type,
-    })
+    result = json.dumps(
+        {
+            "id": event.id,
+            "data": event.get_json(),
+            "topic": event.topic,
+            "subject": event.subject,
+            "event_type": event.event_type,
+        }
+    )
     log_type = "PolicyInsights"
     customer_id = os.environ["WORKSPACE_ID"]
     shared_key = os.environ["WORKSPACE_KEY"]
