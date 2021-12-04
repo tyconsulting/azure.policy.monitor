@@ -33,7 +33,7 @@ stages:
       displayName: 'Code Scan using GitHub Super-Linter'
   - job: Bicep_Validation
     displayName: ARM Deployment Validation
-    dependsOn: arm_ttk_test
+    dependsOn: lint_tests
     pool:
       vmImage: windows-latest
     steps:
