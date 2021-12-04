@@ -29,7 +29,7 @@ stages:
     steps:
     - script: |
         docker pull github/super-linter:latest
-        docker run -e RUN_LOCAL=true -v $(System.DefaultWorkingDirectory)/management:/tmp/lint github/super-linter
+        docker run -e RUN_LOCAL=true -v $(System.DefaultWorkingDirectory):/tmp/lint github/super-linter
       displayName: 'Code Scan using GitHub Super-Linter'
   - job: Bicep_Validation
     displayName: ARM Deployment Validation
@@ -53,7 +53,7 @@ stages:
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
-          az deployment group validate --resource-group $(resourceGroupName) --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location $(location)
+          az deployment group validate --resource-group $(resourceGroupName) --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location '$(location)'
     - task: AzureCLI@2
       displayName: 'Get Function App Template Deployment What-If Result'
       inputs:
@@ -61,7 +61,7 @@ stages:
         scriptType: ps
         scriptLocation: inlineScript
         inlineScript: |
-          az deployment group what-if --resource-group $(resourceGroupName) --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location $(location)
+          az deployment group what-if --resource-group $(resourceGroupName) --template-file 'templates/function-app/main.bicep' --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location '$(location)'
     - task: AzureCLI@2
       displayName: 'Template Validation - Event Grid'
       inputs:
@@ -120,7 +120,7 @@ stages:
                   inlineScript: |
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
-                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/templates/functioin-app/main.bicep --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location $(location)
+                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/templates/functioin-app/main.bicep --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location '$(location)'
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
@@ -146,4 +146,4 @@ stages:
                   inlineScript: |
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
-                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/templates/functioin-app/main.bicep --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location $(location)
+                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/templates/functioin-app/main.bicep --parameters logAnalyticsWorkspaceResourceId='$(logAnalyticsWorkspaceResourceId)' appInsightsName='$(appInsightsName)' appServicePlanName='$(appServicePlanName)' appServicePlanSku='$(appServicePlanSku)' functionAppName='$(functionAppName)' keyVaultName='$(keyVaultName)' keyVaultSku='$(keyVaultSku)' storageAccountName='$(storageAccountName)' storageSku='$(storageSku)' --location '$(location)'
