@@ -1,8 +1,8 @@
 # Bicep Template for the Event Grid Subscription
 
 ```bash
-rg="rg-policy-monitor"
-functionApp="FN-PolicyMonitor"
+rg="rg-policy-monitor-2"
+functionApp="FN-DEV-PolicyMonitor"
 subId=$(az account show | jq '.id' | tr -d '"')
 functionAppResourceId="/subscriptions/$subId/resourceGroups/$rg/providers/Microsoft.Web/sites/$functionApp/functions/PolicyMonitor"
 

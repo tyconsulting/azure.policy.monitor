@@ -1,6 +1,6 @@
 param eventGridSubName string = 'PolicyInsightsSub'
 param topicName string = 'PolicyInsightsTopic'
-param functionAppResourceId string
+param functionAppResourceId string = '${resourceGroup().id}/providers/Microsoft.Web/sites/FN-PolicyMonitor'
 
 resource evtTopic 'Microsoft.EventGrid/systemTopics@2021-06-01-preview' = {
   name: topicName
