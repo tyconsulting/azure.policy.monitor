@@ -48,15 +48,6 @@ stages:
         inlineScript: |
           az --version
           az group create --name $(resourceGroupName) --location $(location)
-    - task: AzurePowerShell@5
-      displayName: 'Get management subscription Id'
-      inputs:
-        azureSubscription: 'sub-mgmt-dev'
-        ScriptType: InlineScript
-        Inline: |
-          $subId = (get-azcontext).subscription.id
-          Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
-        azurePowerShellVersion: LatestVersion
     - task: AzureCLI@2
       displayName: 'Template Validation - Function App'
       inputs:
@@ -161,7 +152,7 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
-                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+                    az deployment group create --name "func-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
               - task: AzureFunctionApp@1
                 displayName: 'Azure functions app deploy'
                 inputs:
@@ -190,12 +181,42 @@ stages:
                   inlineScript: |
                     subId=$(az account show | jq '.id' | tr -d '"')
                     functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
-                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+    - deployment: dev_event_grid_deploy_workload1_sub
+      variables:
+      - group: variables - dev
+      displayName: 'Deploy Event Grid Topic and Subscription to Dev Workload #1 Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzurePowerShell@5
+                displayName: 'Get management subscription Id'
+                inputs:
+                  azureSubscription: 'sub-mgmt-dev'
+                  ScriptType: InlineScript
+                  Inline: |
+                    $subId = (get-azcontext).subscription.id
+                    Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                  azurePowerShellVersion: LatestVersion
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: sub-workload-prod-1
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    functionAppResourceId="/subscriptions/$mgmtSubId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
   jobs:
-    - deployment: prod_deploy
+    - deployment: prod_function_app_deploy
       variables:
       - group: variables - prod
       displayName: 'Deploy to Function App to Prod Managmenet Subscription'
@@ -210,10 +231,71 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Function App'
                 inputs:
-                  azureSubscription: sub-mgmt-dev
+                  azureSubscription: sub-mgmt-prod
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
                     az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+              - task: AzureFunctionApp@1
+                displayName: 'Azure functions app deploy'
+                inputs:
+                  azureSubscription: sub-mgmt-prod
+                  appType: functionAppLinux
+                  appName: $(functionAppName)
+                  package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+    - deployment: prod_event_grid_deploy_mgmt_sub
+      variables:
+      - group: variables - prod
+      displayName: 'Deploy Event Grid Topic and Subscription to Prod Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: sub-mgmt-prod
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    subId=$(az account show | jq '.id' | tr -d '"')
+                    functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+    - deployment: prod_event_grid_deploy_workload1_sub
+      variables:
+      - group: variables - prod
+      displayName: 'Deploy Event Grid Topic and Subscription to Prod Workload #1 Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzurePowerShell@5
+                displayName: 'Get management subscription Id'
+                inputs:
+                  azureSubscription: 'sub-mgmt-prod'
+                  ScriptType: InlineScript
+                  Inline: |
+                    $subId = (get-azcontext).subscription.id
+                    Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                  azurePowerShellVersion: LatestVersion
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: sub-workload-prod-1
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    functionAppResourceId="/subscriptions/$mgmtSubId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az --version
+                    az group create --name $(resourceGroupName) --location $(location)
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
