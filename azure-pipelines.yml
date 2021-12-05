@@ -161,9 +161,9 @@ stages:
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
               - bash: |
-                  sleep 300
+                  sleep 120
                 workingDirectory: $(functionWorkingDirectory)
-                displayName: 'Wait 5 Minutes'
+                displayName: 'Wait 2 Minutes'
     - deployment: dev_event_grid_deploy_mgmt_sub
       variables:
       - group: variables - dev
@@ -171,6 +171,7 @@ stages:
       pool:
         vmImage: ubuntu-latest
         timeoutInMinutes: 60
+      dependsOn: dev_function_app_deploy
       environment: 'dev'
       strategy:
         runOnce:
@@ -193,6 +194,7 @@ stages:
       pool:
         vmImage: ubuntu-latest
         timeoutInMinutes: 60
+      dependsOn: dev_function_app_deploy
       environment: 'dev'
       strategy:
         runOnce:
@@ -250,9 +252,9 @@ stages:
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
               - bash: |
-                  sleep 300
+                  sleep 120
                 workingDirectory: $(functionWorkingDirectory)
-                displayName: 'Wait 5 Minutes'
+                displayName: 'Wait 2 Minutes'
     - deployment: prod_event_grid_deploy_mgmt_sub
       variables:
       - group: variables - prod
@@ -260,6 +262,7 @@ stages:
       pool:
         vmImage: ubuntu-latest
         timeoutInMinutes: 60
+      dependsOn: prod_function_app_deploy
       environment: 'prod'
       strategy:
         runOnce:
@@ -282,6 +285,7 @@ stages:
       pool:
         vmImage: ubuntu-latest
         timeoutInMinutes: 60
+      dependsOn: prod_function_app_deploy
       environment: 'prod'
       strategy:
         runOnce:
