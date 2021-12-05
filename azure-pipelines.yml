@@ -162,7 +162,6 @@ stages:
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
               - bash: |
                   sleep 120
-                workingDirectory: $(functionWorkingDirectory)
                 displayName: 'Wait 2 Minutes'
     - deployment: dev_event_grid_deploy_mgmt_sub
       variables:
@@ -253,7 +252,6 @@ stages:
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
               - bash: |
                   sleep 120
-                workingDirectory: $(functionWorkingDirectory)
                 displayName: 'Wait 2 Minutes'
     - deployment: prod_event_grid_deploy_mgmt_sub
       variables:
