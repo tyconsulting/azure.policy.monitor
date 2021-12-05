@@ -87,11 +87,43 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           az deployment group what-if --resource-group $(resourceGroupName) --template-file "templates/event-grid/main.bicep" --result-format "FullResourcePayloads"
+  - job: Build_Function_App
+    displayName: Build Function App
+    pool:
+      vmImage: ubuntu-latest
+    dependsOn: Bicep_Validation
+    steps:
+    - bash: |
+        if [ -f extensions.csproj ]
+        then
+            dotnet build extensions.csproj --runtime ubuntu.16.04-x64 --output ./bin
+        fi
+      workingDirectory: $(workingDirectory)
+      displayName: 'Build extensions'
+
+    - task: UsePythonVersion@0
+      displayName: 'Use Python 3.6'
+      inputs:
+        versionSpec: 3.6 # Functions V2 supports Python 3.6 as of today
+    - bash: |
+        pip install --target="./.python_packages/lib/site-packages" -r ./requirements.txt
+      workingDirectory: $(workingDirectory)
+      displayName: 'Install application dependencies'
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: function
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
+    - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      artifact: drop
   - job: Publish_Pattern
     displayName: Publish Pattern
     pool:
       vmImage: ubuntu-latest
-    dependsOn: Bicep_Validation
+    dependsOn: Build_Function_App
     steps:
     - task: CopyFiles@2
       displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
