@@ -1,0 +1,321 @@
+name: $(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - 'README.md'
+    - 'tests/*'
+pr:
+  branches:
+    include:
+      - master
+      - feature/*
+  paths:
+    exclude:
+    - 'README.md'
+    - 'tests/*'
+variables:
+  functionWorkingDirectory: 'function'
+stages:
+- stage: test_and_build
+  displayName: 'Test and Build'
+  variables:
+  - group: variables - dev
+  jobs:
+  - job: lint_tests
+    displayName: Lint Tests
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        docker pull github/super-linter:latest
+        docker run -e RUN_LOCAL=true -v $(System.DefaultWorkingDirectory):/tmp/lint github/super-linter
+      displayName: 'Code Scan using GitHub Super-Linter'
+  - job: Bicep_Validation
+    displayName: ARM Deployment Validation
+    dependsOn: lint_tests
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Create Resource Group'
+      inputs:
+        azureSubscription: 'sub-mgmt-dev'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az --version
+          az group create --name $(resourceGroupName) --location $(location)
+    - task: AzureCLI@2
+      displayName: 'Template Validation - Function App'
+      inputs:
+        azureSubscription: 'sub-mgmt-dev'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group validate --resource-group $(resourceGroupName) --template-file "templates/function-app/main.bicep" --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+    - task: AzureCLI@2
+      displayName: 'Get Function App Template Deployment What-If Result'
+      inputs:
+        azureSubscription: 'sub-mgmt-dev'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group what-if --resource-group $(resourceGroupName) --template-file "templates/function-app/main.bicep" --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+    - task: AzureCLI@2
+      displayName: 'Template Validation - Event Grid'
+      inputs:
+        azureSubscription: 'sub-mgmt-dev'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group validate --resource-group $(resourceGroupName) --template-file "templates/event-grid/main.bicep"
+    - task: AzureCLI@2
+      displayName: 'Get Event Grid Template Deployment What-If Result'
+      inputs:
+        azureSubscription: 'sub-mgmt-dev'
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az deployment group what-if --resource-group $(resourceGroupName) --template-file "templates/event-grid/main.bicep" --result-format "FullResourcePayloads"
+  - job: Build_Function_App
+    displayName: Build Function App
+    pool:
+      vmImage: ubuntu-latest
+    dependsOn: Bicep_Validation
+    steps:
+    - bash: |
+        if [ -f extensions.csproj ]
+        then
+            dotnet build extensions.csproj --runtime ubuntu.16.04-x64 --output ./bin
+        fi
+      workingDirectory: $(functionWorkingDirectory)
+      displayName: 'Build extensions'
+
+    - task: UsePythonVersion@0
+      displayName: 'Use Python 3.6'
+      inputs:
+        versionSpec: 3.6 # Functions V2 supports Python 3.6 as of today
+    - bash: |
+        pip install --target="./.python_packages/lib/site-packages" -r ./requirements.txt
+      workingDirectory: $(functionWorkingDirectory)
+      displayName: 'Install application dependencies'
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: $(functionWorkingDirectory)
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
+    - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      artifact: drop
+  - job: Publish_Pattern
+    displayName: Publish Pattern
+    pool:
+      vmImage: ubuntu-latest
+    dependsOn: Build_Function_App
+    steps:
+    - task: CopyFiles@2
+      displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        CleanTargetFolder: true
+        OverWrite: true
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact'
+      inputs:
+        artifactName: 'PolicyMonitor'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+- stage: dev_deploy
+  displayName: 'Deploy Dev Stage'
+  jobs:
+    - deployment: dev_function_app_deploy
+      variables:
+      - group: variables - dev
+      displayName: 'Deploy Function App to Dev Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Function App'
+                inputs:
+                  azureSubscription: 'sub-mgmt-dev'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az deployment group create --name "func-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+              - task: AzureFunctionApp@1
+                displayName: 'Azure functions app deploy'
+                inputs:
+                  azureSubscription: 'sub-mgmt-dev'
+                  appType: functionAppLinux
+                  appName: $(functionAppName)
+                  package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+              - bash: |
+                  sleep 120
+                displayName: 'Wait 2 Minutes'
+    - deployment: dev_event_grid_deploy_mgmt_sub
+      variables:
+      - group: variables - dev
+      displayName: 'Deploy Event Grid Topic and Subscription to Dev Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      dependsOn: dev_function_app_deploy
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: 'sub-mgmt-dev'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
+                    subId=$(az account show | jq '.id' | tr -d '"')
+                    functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+    - deployment: dev_event_grid_deploy_lz_1_sub
+      variables:
+      - group: variables - dev
+      displayName: 'Deploy Event Grid Topic and Subscription to Dev Landing Zone #1 Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      dependsOn: dev_function_app_deploy
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzurePowerShell@5
+                displayName: 'Get management subscription Id'
+                inputs:
+                  azureSubscription: 'sub-mgmt-dev'
+                  ScriptType: InlineScript
+                  Inline: |
+                    $subId = (get-azcontext).subscription.id
+                    Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                  azurePowerShellVersion: LatestVersion
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: 'sub-lz-dev-1'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
+                    functionAppResourceId="/subscriptions/$(mgmtSubId)/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az --version
+                    az group create --name $(resourceGroupName) --location $(location)
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+- stage: prod_deploy
+  displayName: 'Deploy Prod Stage'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
+  jobs:
+    - deployment: prod_function_app_deploy
+      variables:
+      - group: variables - prod
+      displayName: 'Deploy to Function App to Prod Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Function App'
+                inputs:
+                  azureSubscription: 'sub-mgmt-prod'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az --version
+                    az group create --name $(resourceGroupName) --location $(location)
+                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+              - task: AzureFunctionApp@1
+                displayName: 'Azure functions app deploy'
+                inputs:
+                  azureSubscription: 'sub-mgmt-prod'
+                  appType: functionAppLinux
+                  appName: $(functionAppName)
+                  package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+              - bash: |
+                  sleep 120
+                displayName: 'Wait 2 Minutes'
+    - deployment: prod_event_grid_deploy_mgmt_sub
+      variables:
+      - group: variables - prod
+      displayName: 'Deploy Event Grid Topic and Subscription to Prod Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      dependsOn: prod_function_app_deploy
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: 'sub-mgmt-prod'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
+                    subId=$(az account show | jq '.id' | tr -d '"')
+                    functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
+    - deployment: prod_event_grid_deploy_lz_1_sub
+      variables:
+      - group: variables - prod
+      displayName: 'Deploy Event Grid Topic and Subscription to Prod Landing Zone #1 Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      dependsOn: prod_function_app_deploy
+      environment: 'prod'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzurePowerShell@5
+                displayName: 'Get management subscription Id'
+                inputs:
+                  azureSubscription: 'sub-mgmt-prod'
+                  ScriptType: InlineScript
+                  Inline: |
+                    $subId = (get-azcontext).subscription.id
+                    Write-Output ("##vso[task.setvariable variable=mgmtSubId]$subId")
+                  azurePowerShellVersion: LatestVersion
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: 'sub-lz-prod-1'
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
+                    functionAppResourceId="/subscriptions/$(mgmtSubId)/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az --version
+                    az group create --name $(resourceGroupName) --location $(location)
+                    az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
