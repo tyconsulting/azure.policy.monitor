@@ -244,7 +244,7 @@ stages:
                   inlineScript: |
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
-                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
+                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/function-app/main.bicep --parameters logAnalyticsWorkspaceResourceId="$(logAnalyticsWorkspaceResourceId)" appInsightsName="$(appInsightsName)" appServicePlanName="$(appServicePlanName)" appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
               - task: AzureFunctionApp@1
                 displayName: 'Azure functions app deploy'
                 inputs:
