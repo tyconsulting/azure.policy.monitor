@@ -142,10 +142,10 @@ stages:
 - stage: dev_deploy
   displayName: 'Deploy Dev Stage'
   jobs:
-    - deployment: dev_deploy
+    - deployment: dev_function_app_deploy
       variables:
       - group: variables - dev
-      displayName: 'Deploy to Function App to Dev Managmenet Subscription'
+      displayName: 'Deploy Function App to Dev Managmenet Subscription'
       pool:
         vmImage: ubuntu-latest
         timeoutInMinutes: 60
@@ -169,6 +169,28 @@ stages:
                   appType: functionAppLinux
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+    - deployment: dev_event_grid_deploy_mgmt_sub
+      variables:
+      - group: variables - dev
+      displayName: 'Deploy Event Grid Topic and Subscription to Dev Managmenet Subscription'
+      pool:
+        vmImage: ubuntu-latest
+        timeoutInMinutes: 60
+      environment: 'dev'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureCLI@2
+                displayName: 'Deploy Event Grid'
+                inputs:
+                  azureSubscription: sub-mgmt-dev
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    subId=$(az account show | jq '.id' | tr -d '"')
+                    functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az deployment group create --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId appServicePlanSku="$(appServicePlanSku)" functionAppName="$(functionAppName)" keyVaultName="$(keyVaultName)" keyVaultSku="$(keyVaultSku)" storageAccountName="$(storageAccountName)" storageSku="$(storageSku)"
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
