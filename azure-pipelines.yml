@@ -182,7 +182,7 @@ stages:
                     subId=$(az account show | jq '.id' | tr -d '"')
                     functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
                     az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
-    - deployment: dev_event_grid_deploy_lz1_sub
+    - deployment: dev_event_grid_deploy_lz_1_sub
       variables:
       - group: variables - dev
       displayName: 'Deploy Event Grid Topic and Subscription to Dev Landing Zone #1 Subscription'
