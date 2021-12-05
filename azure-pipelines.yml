@@ -206,7 +206,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Event Grid'
                 inputs:
-                  azureSubscription: sub-workload-prod-1
+                  azureSubscription: sub-workload-dev-1
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
