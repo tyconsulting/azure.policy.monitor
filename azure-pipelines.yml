@@ -183,6 +183,8 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
                     subId=$(az account show | jq '.id' | tr -d '"')
                     functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
                     az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
@@ -215,6 +217,8 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
                     functionAppResourceId="/subscriptions/$(mgmtSubId)/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
@@ -275,6 +279,8 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
                     subId=$(az account show | jq '.id' | tr -d '"')
                     functionAppResourceId="/subscriptions/$subId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
                     az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
@@ -307,6 +313,8 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
+                    az provider register --namespace Microsoft.PolicyInsights
+                    az provider register --namespace Microsoft.EventGrid
                     functionAppResourceId="/subscriptions/$(mgmtSubId)/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
                     az --version
                     az group create --name $(resourceGroupName) --location $(location)
