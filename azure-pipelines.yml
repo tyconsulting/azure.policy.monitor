@@ -216,6 +216,8 @@ stages:
                   scriptLocation: inlineScript
                   inlineScript: |
                     functionAppResourceId="/subscriptions/$mgmtSubId/resourceGroups/$(resourceGroupName)/providers/Microsoft.Web/sites/$(functionAppName)/functions/PolicyMonitor"
+                    az --version
+                    az group create --name $(resourceGroupName) --location $(location)
                     az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
