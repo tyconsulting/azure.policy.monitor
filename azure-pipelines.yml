@@ -160,6 +160,10 @@ stages:
                   appType: functionAppLinux
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+              - bash: |
+                  sleep 300
+                workingDirectory: $(functionWorkingDirectory)
+                displayName: 'Wait 5 Minutes'
     - deployment: dev_event_grid_deploy_mgmt_sub
       variables:
       - group: variables - dev
@@ -245,6 +249,10 @@ stages:
                   appType: functionAppLinux
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+              - bash: |
+                  sleep 300
+                workingDirectory: $(functionWorkingDirectory)
+                displayName: 'Wait 5 Minutes'
     - deployment: prod_event_grid_deploy_mgmt_sub
       variables:
       - group: variables - prod
