@@ -42,7 +42,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Create Resource Group'
       inputs:
-        azureSubscription: sub-mgmt-dev
+        azureSubscription: 'sub-mgmt-dev'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
@@ -148,7 +148,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Function App'
                 inputs:
-                  azureSubscription: sub-mgmt-dev
+                  azureSubscription: 'sub-mgmt-dev'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
@@ -156,7 +156,7 @@ stages:
               - task: AzureFunctionApp@1
                 displayName: 'Azure functions app deploy'
                 inputs:
-                  azureSubscription: sub-mgmt-dev
+                  azureSubscription: 'sub-mgmt-dev'
                   appType: functionAppLinux
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
@@ -175,7 +175,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Event Grid'
                 inputs:
-                  azureSubscription: sub-mgmt-dev
+                  azureSubscription: 'sub-mgmt-dev'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
@@ -206,7 +206,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Event Grid'
                 inputs:
-                  azureSubscription: sub-workload-dev-1
+                  azureSubscription: 'sub-workload-dev-1'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
@@ -231,7 +231,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Function App'
                 inputs:
-                  azureSubscription: sub-mgmt-prod
+                  azureSubscription: 'sub-mgmt-prod'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
@@ -241,7 +241,7 @@ stages:
               - task: AzureFunctionApp@1
                 displayName: 'Azure functions app deploy'
                 inputs:
-                  azureSubscription: sub-mgmt-prod
+                  azureSubscription: 'sub-mgmt-prod'
                   appType: functionAppLinux
                   appName: $(functionAppName)
                   package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
@@ -260,7 +260,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Event Grid'
                 inputs:
-                  azureSubscription: sub-mgmt-prod
+                  azureSubscription: 'sub-mgmt-prod'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
@@ -291,7 +291,7 @@ stages:
               - task: AzureCLI@2
                 displayName: 'Deploy Event Grid'
                 inputs:
-                  azureSubscription: sub-workload-prod-1
+                  azureSubscription: 'sub-workload-prod-1'
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
