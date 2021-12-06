@@ -1,5 +1,7 @@
 # Bicep Template for the Event Grid Subscription
 
+Manual deployment:
+
 ```bash
 rg="rg-policy-monitor-2"
 functionApp="FN-DEV-PolicyMonitor"
