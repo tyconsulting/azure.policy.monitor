@@ -1,5 +1,7 @@
 # Bicep template for the Azure Function app
 
+Manual deployment:
+
 ```bash
 rg="rg-policy-monitor"
 
