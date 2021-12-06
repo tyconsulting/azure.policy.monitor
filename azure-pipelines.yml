@@ -225,7 +225,7 @@ stages:
                     az deployment group create --name "evtgrid-$(Build.BuildId)" --resource-group $(resourceGroupName) --template-file $(Agent.BuildDirectory)/PolicyMonitor/templates/event-grid/main.bicep --parameters eventGridSubName="$(eventGridSubName)" topicName="$(topicName)" functionAppResourceId=$functionAppResourceId
 - stage: prod_deploy
   displayName: 'Deploy Prod Stage'
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) 
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main')) 
   jobs:
     - deployment: prod_function_app_deploy
       variables:
