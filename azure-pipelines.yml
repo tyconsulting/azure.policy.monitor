@@ -2,7 +2,7 @@ name: $(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 trigger:
   branches:
     include:
-    - master
+    - main
   paths:
     exclude:
     - 'README.md'
@@ -10,7 +10,7 @@ trigger:
 pr:
   branches:
     include:
-      - master
+      - main
       - feature/*
   paths:
     exclude:
