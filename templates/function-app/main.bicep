@@ -25,13 +25,16 @@ param storageSku string = 'Standard_LRS'
 @description('App Service Plan SKU name.')
 param appServicePlanSku string = 'Y1'
 
+@description('App Service Plan SKU code.')
+param appServicePlanTier string = 'Dynamic'
+
 @description('Log Analytics Workspace Resource Id.')
 param logAnalyticsWorkspaceResourceId string
-
 
 var functionName = 'PolicyMonitor'
 var functionAppKeySecretName = 'FunctionAppHostKey'
 var logAnalyticsAPIVersion = '2021-06-01'
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2021-06-01' = {
   name: storageAccountName
   location: location
@@ -75,6 +78,7 @@ resource plan 'Microsoft.Web/serverfarms@2020-12-01' = {
   kind: 'linux'
   sku: {
     name: appServicePlanSku
+    tier: appServicePlanTier
   }
   properties: {
     reserved: true
