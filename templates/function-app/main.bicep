@@ -131,9 +131,11 @@ resource functionApp 'Microsoft.Web/sites@2021-02-01' = {
           value: '${listKeys(logAnalyticsWorkspaceResourceId, logAnalyticsAPIVersion).primarySharedKey}'
         }
       ]
+      ftpsState: 'FtpsOnly'
       numberOfWorkers: 1
       linuxFxVersion: 'PYTHON|3.9'
     }
+    httpsOnly: true
     keyVaultReferenceIdentity: 'SystemAssigned'
   }
 }
