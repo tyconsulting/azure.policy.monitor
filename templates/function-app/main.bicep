@@ -32,6 +32,31 @@ param logAnalyticsWorkspaceResourceId string
 var functionName = 'PolicyMonitor'
 var functionAppKeySecretName = 'FunctionAppHostKey'
 var logAnalyticsAPIVersion = '2021-06-01'
+
+var workspaceId = logAnalyticsWorkspace.properties.customerId
+var primaryKey = listKeys(logAnalyticsWorkspace.id, logAnalyticsWorkspace.apiVersion).primarySharedKey
+
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' = {
+  name: logAnalyticsWorkspaceResourceId
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+    features: {
+      enableLogAccessUsingOnlyResourcePermissions: true
+    }
+    workspaceCapping: {
+      dailyQuotaGb: -1
+    }
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
+  }
+}
+
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2021-06-01' = {
   name: storageAccountName
   location: location
@@ -66,6 +91,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
   }
 }
 
@@ -124,11 +150,11 @@ resource functionApp 'Microsoft.Web/sites@2021-02-01' = {
         }
         {
           name: 'WORKSPACE_ID'
-          value: '${reference(logAnalyticsWorkspaceResourceId, logAnalyticsAPIVersion).customerId}'
+          value: '${workspaceId}'
         }
         {
           name: 'WORKSPACE_KEY'
-          value: '${listKeys(logAnalyticsWorkspaceResourceId, logAnalyticsAPIVersion).primarySharedKey}'
+          value: '${primaryKey}'
         }
       ]
       numberOfWorkers: 1
@@ -136,6 +162,9 @@ resource functionApp 'Microsoft.Web/sites@2021-02-01' = {
     }
     keyVaultReferenceIdentity: 'SystemAssigned'
   }
+  dependsOn: [
+    logAnalyticsWorkspace
+  ]
 }
 
 
